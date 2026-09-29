@@ -1,7 +1,12 @@
 {
+  "seqDate": "",
+  "seqNo": 0,
+  "verifications": [],
+  "enrollments": [],
   "pigeons": [
     {
       "ringNo": "CHN-2026-001",
+      "registrar": "王登记",
       "owner": "北岸棚",
       "fatherRing": "CHN-2022-188",
       "motherRing": "CHN-2023-512",
@@ -32,6 +37,7 @@
     },
     {
       "ringNo": "CHN-2022-188",
+      "registrar": "王登记",
       "owner": "育种棚",
       "fatherRing": "",
       "motherRing": "",
@@ -43,6 +49,7 @@
     },
     {
       "ringNo": "CHN-2023-512",
+      "registrar": "王登记",
       "owner": "育种棚",
       "fatherRing": "",
       "motherRing": "",

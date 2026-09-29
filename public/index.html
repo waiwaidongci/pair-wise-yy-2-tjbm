@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>种鸽档案核验站</title>
+  <style>
+    :root { --bg:#eff2f5; --panel:#fff; --ink:#1f2833; --muted:#697786; --line:#d3dce4; --accent:#315f83; --red:#9b3f35; --green:#3c6e47; --amber:#9a6a1f; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:Arial,"PingFang SC",sans-serif; }
+    header { padding:22px 28px; background:#fff; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1 { margin:0; font-size:24px; }
+    nav button { margin-left:8px; }
+    main { padding:22px 28px; display:grid; gap:22px; grid-template-columns:1fr; }
+    .two { display:grid; grid-template-columns:360px 1fr; gap:22px; align-items:start; }
+    form,.panel,.card,.stat { background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; }
+    h2 { margin:0 0 12px; font-size:18px; } h3 { margin:0 0 6px; }
+    label { display:block; margin:10px 0 5px; color:var(--muted); font-size:13px; }
+    input,select { width:100%; border:1px solid var(--line); border-radius:6px; padding:9px; font:inherit; }
+    button { border:0; border-radius:6px; background:var(--accent); color:#fff; padding:9px 12px; font-weight:700; cursor:pointer; }
+    button.ghost { background:#e7edf2; color:var(--accent); }
+    button.danger { background:var(--red); }
+    .toolbar { display:grid; grid-template-columns:1fr auto; gap:10px; margin-bottom:14px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+    .card { display:grid; gap:8px; align-content:start; }
+    .meta { color:var(--muted); font-size:13px; }
+    .pill { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; }
+    .badge { display:inline-block; border-radius:999px; padding:3px 10px; font-size:12px; font-weight:700; }
+    .b-pending { background:#eef2f6; color:var(--muted); }
+    .b-blocked { background:#faf0dc; color:var(--amber); }
+    .b-confirmed { background:#e2f0e5; color:var(--green); }
+    .b-invalid { background:#f7e3e0; color:var(--red); }
+    .b-expired { background:#eee; color:#555; }
+    .relation { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:10px 0; }
+    .small { background:#f8fafb; border:1px solid var(--line); border-radius:8px; padding:10px; font-size:13px; }
+    .frozen { border-left:4px solid var(--green); background:#f6faf7; border-radius:6px; padding:10px; margin-top:8px; font-size:13px; }
+    .invalids { border-left:4px solid var(--red); background:#fbf3f2; border-radius:6px; padding:10px; margin-top:8px; font-size:13px; }
+    .reasons { border-left:4px solid var(--amber); background:#fdf8ec; border-radius:6px; padding:10px; margin-top:8px; font-size:13px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .row input { flex:1; }
+    .notice { background:#fff8e6; border:1px solid #e8d49a; border-radius:6px; padding:8px 10px; font-size:13px; margin:8px 0; }
+    .toast { position:fixed; right:20px; bottom:20px; max-width:380px; background:#243442; color:#fff; padding:12px 16px; border-radius:8px; font-size:13px; opacity:0; transform:translateY(8px); transition:.2s; pointer-events:none; white-space:pre-wrap; }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { background:var(--red); }
+    .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+    .tabs { display:flex; gap:8px; }
+    .hidden { display:none; }
+    @media (max-width:900px){ header{display:block;padding:18px 16px;} .two{grid-template-columns:1fr;} main{padding:16px;} .relation{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>种鸽交付 · 档案核验站</h1><div class="meta">血统 · 疫苗 · 转让 · 成绩，凭据快照定格</div></div>
+    <div class="tabs">
+      <button data-tab="archive" class="ghost">档案</button>
+      <button data-tab="verify" class="ghost">核验单</button>
+      <button data-tab="enroll" class="ghost">比赛报名</button>
+      <button id="reload" class="ghost">刷新</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 档案区 -->
+    <section id="tab-archive">
+      <div class="two">
+        <form id="form">
+          <h2>创建鸽只档案</h2>
+          <label>足环号 *</label><input name="ringNo" required>
+          <label>登记人 *</label><input name="registrar" required placeholder="建档人，核验时须换人">
+          <label>鸽主</label><input name="owner" placeholder="不填则与登记人相同">
+          <label>父鸽足环号</label><input name="fatherRing">
+          <label>母鸽足环号</label><input name="motherRing">
+          <label>羽色</label><input name="color">
+          <label>出生棚号</label><input name="loft">
+          <button>保存档案</button>
+        </form>
+        <div>
+          <div class="toolbar"><input id="search" placeholder="输入足环号查询血统"><button id="searchBtn">查询</button></div>
+          <div class="panel" id="detail"></div>
+          <h2 style="margin-top:18px">全部档案（改动会使未过期凭据失效）</h2>
+          <div class="grid" id="cards"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 核验单区 -->
+    <section id="tab-verify" class="hidden">
+      <div class="two">
+        <form id="verifyForm">
+          <h2>生成档案核验单</h2>
+          <label>选择待交付种鸽 *</label><select name="ringNo" id="verifyRing"></select>
+          <label>建单人</label><input name="createdBy" required placeholder="由谁发起核验">
+          <div class="notice">选鸽即生成编号与快照。父母未建档或血统成环时单子为“待核”，补齐后再确认。</div>
+          <button>选鸽建单</button>
+        </form>
+        <div class="panel">
+          <h2>核验单列表</h2>
+          <div class="meta" id="validHint"></div>
+          <div id="forms" style="margin-top:10px;display:grid;gap:12px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 报名区 -->
+    <section id="tab-enroll" class="hidden">
+      <div class="two">
+        <form id="enrollForm">
+          <h2>凭据报名比赛</h2>
+          <label>有效核验单 *</label><select name="formId" id="enrollSelect"></select>
+          <label>赛事名称</label><input name="raceEvent" required placeholder="如 秋季500公里大奖赛">
+          <div class="notice">报名内容取自核验单定格的原快照；之后改档或凭据失效，已报名记录不变。</div>
+          <button>提交报名</button>
+        </form>
+        <div class="panel">
+          <h2>已报名比赛（按原快照）</h2>
+          <div id="enrollments" style="margin-top:10px;display:grid;gap:12px;"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = sel => document.querySelector(sel);
+    let pigeons = [], verifications = [], enrollments = [];
+
+    async function api(path, options) {
+      const res = await fetch(path, options && options.body ? { ...options, headers: { "Content-Type": "application/json" } } : options);
+      const data = await res.json();
+      if (!res.ok) {
+        const err = new Error(data.reason || data.error || "请求失败");
+        err.payload = data;
+        throw err;
+      }
+      return data;
+    }
+    function esc(v) {
+      return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function toast(msg, isError) {
+      const el = $("#toast");
+      el.textContent = msg;
+      el.className = "toast show" + (isError ? " error" : "");
+      clearTimeout(el._t);
+      el._t = setTimeout(() => el.className = "toast", 3600);
+    }
+
+    // ---------- 档案 ----------
+    function renderCards() {
+      $("#cards").innerHTML = pigeons.map(p => `
+        <article class="card">
+          <h3>${esc(p.ringNo)}</h3>
+          <span class="pill">鸽主：${esc(p.owner)}</span>
+          <div class="meta">登记人：${esc(p.registrar)} · ${esc(p.color)} · ${esc(p.loft)}</div>
+          <div class="meta">父：${esc(p.fatherRing || "未登记")}　母：${esc(p.motherRing || "未登记")}</div>
+          <label>改鸽主 / 父环 / 母环 / 羽色 / 棚号（留空字段不改）</label>
+          <input data-edit="${esc(p.ringNo)}" placeholder="owner=新鸽主;fatherRing=环号;color=雨点">
+          <div class="row"><button class="ghost" data-patch="${esc(p.ringNo)}">改档</button></div>
+          <label>录入疫苗</label>
+          <div class="row"><input data-vac="${esc(p.ringNo)}" placeholder="疫苗名，如 新城疫"><button class="ghost" data-vacbtn="${esc(p.ringNo)}">保存疫苗</button></div>
+          <label>录入转让</label>
+          <div class="row"><input data-to="${esc(p.ringNo)}" placeholder="新归属人"><button class="ghost" data-transfer="${esc(p.ringNo)}">保存转让</button></div>
+          <label>归巢成绩</label>
+          <input data-race="${esc(p.ringNo)}" placeholder="赛事/距离/名次，如200公里/200/6">
+          <button class="ghost" data-score="${esc(p.ringNo)}">保存成绩</button>
+        </article>`).join("");
+
+      bindCardActions();
+    }
+
+    function bindCardActions() {
+      document.querySelectorAll("[data-patch]").forEach(btn => btn.onclick = async () => {
+        const ringNo = btn.dataset.patch;
+        const raw = document.querySelector(`[data-edit="${CSS.escape(ringNo)}"]`).value;
+        const updates = {};
+        raw.split(";").map(s => s.trim()).filter(Boolean).forEach(pair => {
+          const i = pair.indexOf("=");
+          if (i > 0) updates[pair.slice(0, i).trim()] = pair.slice(i + 1).trim();
+        });
+        if (!Object.keys(updates).length) return toast("请填写改动，如 owner=新鸽主", true);
+        try {
+          await api(`/api/pigeons/${encodeURIComponent(ringNo)}`, { method: "PATCH", body: JSON.stringify(updates) });
+          toast("改档完成，受影响的未过期凭据已标失效");
+          await load();
+        } catch (e) { toast(e.message, true); }
+      });
+      document.querySelectorAll("[data-vacbtn]").forEach(btn => btn.onclick = async () => {
+        const ringNo = btn.dataset.vacbtn;
+        const name = document.querySelector(`[data-vac="${CSS.escape(ringNo)}"]`).value;
+        if (!name) return toast("填写疫苗名", true);
+        await api(`/api/pigeons/${encodeURIComponent(ringNo)}/vaccines`, { method: "POST", body: JSON.stringify({ name }) });
+        toast("疫苗已记录，受影响凭据已失效");
+        await load();
+      });
+      document.querySelectorAll("[data-transfer]").forEach(btn => btn.onclick = async () => {
+        const ringNo = btn.dataset.transfer;
+        const to = document.querySelector(`[data-to="${CSS.escape(ringNo)}"]`).value;
+        if (!to) return toast("填写新归属人", true);
+        await api(`/api/pigeons/${encodeURIComponent(ringNo)}/transfers`, { method: "POST", body: JSON.stringify({ to }) });
+        toast("转让已记录，受影响凭据已失效");
+        await load();
+      });
+      document.querySelectorAll("[data-score]").forEach(btn => btn.onclick = async () => {
+        const ringNo = btn.dataset.score;
+        const parts = document.querySelector(`[data-race="${CSS.escape(ringNo)}"]`).value.split("/");
+        await api(`/api/pigeons/${encodeURIComponent(ringNo)}/races`, {
+          method: "POST",
+          body: JSON.stringify({ event: parts[0] || "未命名赛事", distance: Number(parts[1] || 0), rank: Number(parts[2] || 0) })
+        });
+        toast("成绩已记录，受影响凭据已失效");
+        await load();
+      });
+    }
+
+    function renderRelation(data) {
+      if (!data) {
+        $("#detail").innerHTML = '<h2>血统查询</h2><p class="meta">请输入足环号查看父母、子代、转让和成绩。</p>';
+        return;
+      }
+      const p = data.pigeon;
+      $("#detail").innerHTML = `
+        <h2>${esc(p.ringNo)} 血统档案</h2>
+        <div class="relation">
+          <div class="small"><b>父鸽</b><br>${esc(data.father?.ringNo || p.fatherRing || "未登记")}</div>
+          <div class="small"><b>本鸽</b><br>${esc(p.owner)} · ${esc(p.color)}<br><span class="meta">登记人 ${esc(p.registrar)}</span></div>
+          <div class="small"><b>母鸽</b><br>${esc(data.mother?.ringNo || p.motherRing || "未登记")}</div>
+        </div>
+        <div><b>子代</b> ${esc(data.children.map(c => c.ringNo).join("、") || "暂无")}</div>
+        <div class="meta">疫苗：${esc(p.vaccines.map(v => v.date + " " + v.name).join(" / ") || "暂无")}</div>
+        <div class="meta">转让：${esc(p.transfers.map(t => t.from + "→" + t.to).join(" / ") || "暂无")}</div>
+        <div class="meta">归巢：${esc(p.races.map(r => r.event + " 第" + r.rank + "名").join(" / ") || "暂无")}</div>`;
+    }
+
+    // ---------- 核验单 ----------
+    const STATUS = {
+      pending: ["b-pending", "待确认"], blocked: ["b-blocked", "待核"],
+      confirmed: ["b-confirmed", "已确认（有效）"], invalid: ["b-invalid", "已失效"]
+    };
+    function statusBadge(form) {
+      if (form.status === "confirmed" && form.expired) return '<span class="badge b-expired">已过期</span>';
+      const [cls, text] = STATUS[form.status] || ["b-pending", form.status];
+      return `<span class="badge ${cls}">${text}</span>`;
+    }
+    function snapshotHtml(s) {
+      const parent = x => x.ringNo ? `${esc(x.ringNo)}${x.missing ? "（未建档）" : ""}` : "未声明";
+      return `<div class="frozen">
+        <b>定格快照</b> <span class="meta">${esc(s.takenAt)}</span><br>
+        父：${parent(s.father)}　母：${parent(s.mother)}<br>
+        鸽主：${esc(s.owner)} · ${esc(s.color)} · ${esc(s.loft)}<br>
+        疫苗：${esc(s.vaccines.map(v => v.date + " " + v.name).join(" / ") || "无")}<br>
+        转让：${esc(s.transfers.map(t => t.from + "→" + t.to).join(" / ") || "无")}<br>
+        成绩：${esc(s.races.map(r => r.date + " " + r.event + " 第" + r.rank + "名").join(" / ") || "无")}
+      </div>`;
+    }
+    function renderForms() {
+      $("#verifyRing").innerHTML = pigeons.map(p => `<option value="${esc(p.ringNo)}">${esc(p.ringNo)}（${esc(p.owner)}）</option>`).join("");
+      const effective = verifications.filter(f => f.effective);
+      $("#enrollSelect").innerHTML = effective.length
+        ? effective.map(f => `<option value="${esc(f.id)}">${esc(f.serial)} · ${esc(f.ringNo)}</option>`).join("")
+        : '<option value="">暂无有效凭据</option>';
+
+      $("#forms").innerHTML = verifications.length ? verifications.slice().reverse().map(f => `
+        <article class="card">
+          <div class="row" style="justify-content:space-between">
+            <h3 class="mono">${esc(f.serial)}</h3>${statusBadge(f)}
+          </div>
+          <div class="meta">种鸽 ${esc(f.ringNo)} · 登记人 ${esc(f.registrar)} · 建单 ${esc(f.createdBy)} · ${esc(f.createdAt)}</div>
+          ${f.status === "confirmed" ? `<div class="meta">核验人：${esc(f.verifier)} · 确认于 ${esc(f.confirmedAt)} · 有效期至 ${esc(f.expiresAt)}</div>` : ""}
+          ${f.blocked && f.blocked.length ? `<div class="reasons"><b>待核原因</b><br>${f.blocked.map(esc).join("<br>")}</div>` : ""}
+          ${snapshotHtml(f.snapshot)}
+          ${f.invalidations.length ? `<div class="invalids"><b>改档失效记录</b>${f.invalidations.map(iv =>
+            `<div style="margin-top:6px">${esc(iv.at)} 因 ${esc(iv.ringNo)}：<br>${iv.changes.map(c => "· " + esc(c)).join("<br>")}</div>`).join("")}</div>` : ""}
+          ${(f.status === "pending" || f.status === "blocked") ? `
+            <label>核验人（不得与登记人相同）</label>
+            <div class="row"><input data-verify="${esc(f.id)}" placeholder="核验人姓名"><button data-confirm="${esc(f.id)}">确认定格</button></div>` : ""}
+          ${f.effective ? `<div class="row"><input data-enrollname="${esc(f.id)}" placeholder="赛事名称"><button class="ghost" data-formenroll="${esc(f.id)}">凭此单报名</button></div>` : ""}
+        </article>`).join("")
+        : '<p class="meta">还没有核验单，左侧选鸽建单。</p>';
+
+      document.querySelectorAll("[data-confirm]").forEach(btn => btn.onclick = async () => {
+        const id = btn.dataset.confirm;
+        const verifier = document.querySelector(`[data-verify="${CSS.escape(id)}"]`).value;
+        try {
+          const r = await api(`/api/verifications/${encodeURIComponent(id)}/confirm`, { method: "POST", body: JSON.stringify({ verifier }) });
+          toast(r.reused ? "重复确认：沿用首次确认结果" : "核验通过，快照已定格");
+        } catch (e) {
+          if (e.payload?.error === "verification_blocked") toast("仍有待核项：\n" + (e.payload.blocked || []).join("\n"), true);
+          else toast(e.message, true);
+        }
+        await load();
+      });
+      document.querySelectorAll("[data-formenroll]").forEach(btn => btn.onclick = async () => {
+        const id = btn.dataset.formenroll;
+        const raceEvent = document.querySelector(`[data-enrollname="${CSS.escape(id)}"]`).value;
+        if (!raceEvent) return toast("填写赛事名称", true);
+        await api("/api/enrollments", { method: "POST", body: JSON.stringify({ formId: id, raceEvent }) });
+        toast("报名成功，已沿用确认时原快照");
+        await load();
+      });
+    }
+
+    // ---------- 报名 ----------
+    function renderEnrollments() {
+      $("#enrollments").innerHTML = enrollments.length ? enrollments.slice().reverse().map(e => `
+        <article class="card">
+          <div class="row" style="justify-content:space-between">
+            <h3 class="mono">${esc(e.enrollNo)}</h3><span class="pill">${esc(e.raceEvent)}</span>
+          </div>
+          <div class="meta">种鸽 ${esc(e.ringNo)} · 凭据 ${esc(e.formSerial)} · 报名于 ${esc(e.enrolledAt)}</div>
+          ${snapshotHtml(e.snapshot)}
+          <div class="notice">即使凭据此后因改档失效，本报名仍以上述原快照为准。</div>
+        </article>`).join("")
+        : '<p class="meta">暂无报名。</p>';
+    }
+
+    // ---------- 装配 ----------
+    async function load() {
+      pigeons = await api("/api/pigeons");
+      const vdata = await api("/api/verifications");
+      verifications = vdata.verifications;
+      $("#validHint").textContent = `确认后凭据 ${vdata.validDays} 天内有效；改档时未过期凭据标失效并记录变化。`;
+      enrollments = await api("/api/enrollments");
+      renderCards();
+      renderRelation(null);
+      renderForms();
+      renderEnrollments();
+    }
+
+    $("#form").onsubmit = async ev => {
+      ev.preventDefault();
+      await api("/api/pigeons", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(ev.target).entries())) });
+      ev.target.reset();
+      toast("档案已创建");
+      await load();
+    };
+    $("#verifyForm").onsubmit = async ev => {
+      ev.preventDefault();
+      const fd = Object.fromEntries(new FormData(ev.target).entries());
+      const f = await api("/api/verifications", { method: "POST", body: JSON.stringify(fd) });
+      toast(f.status === "blocked" ? "已建单，但存在待核项：\n" + f.blocked.join("\n") : "已建单并生成快照，请核验人确认");
+      ev.target.reset();
+      await load();
+    };
+    $("#enrollForm").onsubmit = async ev => {
+      ev.preventDefault();
+      const fd = Object.fromEntries(new FormData(ev.target).entries());
+      if (!fd.formId) return toast("没有有效凭据可报名", true);
+      await api("/api/enrollments", { method: "POST", body: JSON.stringify(fd) });
+      ev.target.reset();
+      toast("报名成功，已沿用确认时原快照");
+      await load();
+    };
+    $("#searchBtn").onclick = async () => {
+      const v = $("#search").value.trim();
+      if (!v) return renderRelation(null);
+      try { renderRelation(await api(`/api/pigeons/${encodeURIComponent(v)}/relation`)); }
+      catch { renderRelation(null); toast("未找到该足环号", true); }
+    };
+    $("#reload").onclick = load;
+    document.querySelectorAll("[data-tab]").forEach(btn => btn.onclick = () => {
+      ["archive", "verify", "enroll"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== btn.dataset.tab));
+    });
+
+    load().catch(e => toast(e.message, true));
+  </script>
+</body>
+</html>
