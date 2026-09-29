@@ -1,8 +1,11 @@
 {
+  "seq": 0,
   "pigeons": [
     {
       "ringNo": "CHN-2026-001",
       "owner": "北岸棚",
+      "registrar": "老周",
+      "revision": 1,
       "fatherRing": "CHN-2022-188",
       "motherRing": "CHN-2023-512",
       "color": "灰",
@@ -33,6 +36,8 @@
     {
       "ringNo": "CHN-2022-188",
       "owner": "育种棚",
+      "registrar": "老周",
+      "revision": 1,
       "fatherRing": "",
       "motherRing": "",
       "color": "雨点",
@@ -44,6 +49,8 @@
     {
       "ringNo": "CHN-2023-512",
       "owner": "育种棚",
+      "registrar": "老周",
+      "revision": 1,
       "fatherRing": "",
       "motherRing": "",
       "color": "红轮",
@@ -52,5 +59,7 @@
       "transfers": [],
       "races": []
     }
-  ]
+  ],
+  "certificates": [],
+  "raceEntries": []
 }
